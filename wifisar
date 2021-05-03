@@ -1,0 +1,106 @@
+#!/vendor/bin/sh
+SAR_EXEC_FILE="/vendor/bin/vendor_cmd_tool"
+SAR_CFG_FILE="/vendor/etc/wifi/sar-vendor-cmd.xml"
+
+WIFI_SAR_SETTING=(
+#
+"--ENABLE 5 --NUM_SPECS 0
+--END_CMD"
+
+## sarIdx:1
+"--ENABLE 6 --NUM_SPECS 4 \
+--SAR_SPEC \
+--NESTED_AUTO --BAND 0 --CHAIN 0 --POW 28 --END_ATTR \
+--NESTED_AUTO --BAND 0 --CHAIN 1 --POW 28 --END_ATTR \
+--NESTED_AUTO --BAND 1 --CHAIN 0 --POW 28 --END_ATTR \
+--NESTED_AUTO --BAND 1 --CHAIN 1 --POW 28 --END_ATTR \
+--END_ATTR --END_CMD"
+
+## saridx:2
+"--ENABLE 6 --NUM_SPECS 4 \
+--SAR_SPEC \
+--NESTED_AUTO --BAND 0 --CHAIN 0 --POW 30 --END_ATTR \
+--NESTED_AUTO --BAND 0 --CHAIN 1 --POW 30 --END_ATTR \
+--NESTED_AUTO --BAND 1 --CHAIN 0 --POW 30 --END_ATTR \
+--NESTED_AUTO --BAND 1 --CHAIN 1 --POW 30 --END_ATTR \
+--END_ATTR --END_CMD"
+
+## saridx:3
+"--ENABLE 6 --NUM_SPECS 4 \
+--SAR_SPEC \
+--NESTED_AUTO --BAND 0 --CHAIN 0 --POW 30 --END_ATTR \
+--NESTED_AUTO --BAND 0 --CHAIN 1 --POW 30 --END_ATTR \
+--NESTED_AUTO --BAND 1 --CHAIN 0 --POW 28 --END_ATTR \
+--NESTED_AUTO --BAND 1 --CHAIN 1 --POW 28 --END_ATTR \
+--END_ATTR --END_CMD"
+
+## saridx:4
+"--ENABLE 6 --NUM_SPECS 4 \
+--SAR_SPEC \
+--NESTED_AUTO --BAND 0 --CHAIN 0 --POW 26 --END_ATTR \
+--NESTED_AUTO --BAND 0 --CHAIN 1 --POW 26 --END_ATTR \
+--NESTED_AUTO --BAND 1 --CHAIN 0 --POW 26 --END_ATTR \
+--NESTED_AUTO --BAND 1 --CHAIN 1 --POW 26 --END_ATTR \
+--END_ATTR --END_CMD"
+
+## saridx:5
+"--ENABLE 6 --NUM_SPECS 2 \
+--SAR_SPEC \
+--NESTED_AUTO --BAND 1 --CHAIN 0 --POW 32 --END_ATTR \
+--NESTED_AUTO --BAND 1 --CHAIN 1 --POW 32 --END_ATTR \
+--END_ATTR --END_CMD"
+
+## saridx:6
+"--ENABLE 6 --NUM_SPECS 2 \
+--SAR_SPEC \
+--NESTED_AUTO --BAND 1 --CHAIN 0 --POW 29 --END_ATTR \
+--NESTED_AUTO --BAND 1 --CHAIN 1 --POW 29 --END_ATTR \
+--END_ATTR --END_CMD"
+)
+
+# temp static value, should get from sysfs based on STA/SAP on/off status
+# for android O, interface of SAP is softap0
+get_wifi_iface() {
+	echo "wlan0"
+}
+
+build_cmd_header() {
+	iface="$(get_wifi_iface)"
+	echo "-f $SAR_CFG_FILE -i $iface --START_CMD --SAR_SET"
+}
+
+build_cmd_body() {
+    sarIdx="$1"
+
+    arraySize=${#WIFI_SAR_SETTING[@]}
+    if [ "$sarIdx" -lt "$arraySize" ]; then
+        echo "${WIFI_SAR_SETTING[$sarIdx]}"
+        return
+    fi
+}
+
+build_cmd() {
+	cHdr="$(build_cmd_header)"
+	cBody="$(build_cmd_body $1 $2)"
+
+	echo "$cHdr $cBody"
+}
+
+apply_sar() {
+	cmd="$(build_cmd $1 $2)"
+	echo "cmd=$cmd"
+
+	$SAR_EXEC_FILE $cmd
+}
+
+project_version=$(getprop "ro.separate.soft")
+[ -z "$project_version" ] && return
+
+# Note:
+# 1. index of 1-n(n=arraySize-1) is for specific sar setting;
+# 2. index of 0 is for disabling sar.
+sarIdx=$(getprop "oppo.wifi.sar.idx" "0")
+
+apply_sar "$sarIdx" "$project_version"
+
+
